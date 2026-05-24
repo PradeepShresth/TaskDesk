@@ -9,9 +9,13 @@ if (!empty($_SESSION['user_id'])) {
     redirect('dashboard.php');
 }
 
-$errors  = [];
-$email   = '';
-$success = flash_get('success');
+$errors      = [];
+$email       = '';
+$success     = flash_get('success');
+$error_flash = flash_get('error');
+if ($error_flash !== null) {
+    $errors[] = $error_flash;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = clean_input($_POST['email'] ?? '');
