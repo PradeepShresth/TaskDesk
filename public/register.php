@@ -77,7 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Register &mdash; <?= e(APP_NAME) ?></title>
+    <link rel="stylesheet" href="<?= e(url('assets/css/auth.css')) ?>">
 </head>
 <body>
     <main class="auth-page">
