@@ -1,0 +1,22 @@
+# Local config with real DB credentials — never commit
+config/config.php
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Uploads (if added later)
+public/uploads/
+
+# PHP build artifacts
+vendor/
+composer.lock
