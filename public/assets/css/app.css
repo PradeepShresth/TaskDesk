@@ -409,6 +409,322 @@ hr {
 .stat-card--muted   { border-top-color: var(--color-text-subtle); }
 
 /* ==================================================================
+   Detail list (label / value grid used on ticket detail page)
+   ================================================================== */
+
+.detail-list {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: var(--space-2) var(--space-4);
+    margin: 0;
+}
+
+.detail-list dt {
+    font-weight: 600;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+}
+
+.detail-list dd {
+    margin: 0;
+    font-size: 0.9375rem;
+}
+
+.page-intro__actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+/* ==================================================================
+   Status text colors (used in tables, ticket detail)
+   ================================================================== */
+
+.status-text {
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-text--open        { color: var(--color-info); }
+.status-text--in_progress { color: var(--color-warning); }
+.status-text--resolved    { color: var(--color-success); }
+.status-text--closed      { color: var(--color-text-subtle); }
+
+.data-table td:nth-child(2),
+.data-table td:nth-child(3),
+.data-table td:nth-child(5),
+.data-table td:nth-child(6) {
+    white-space: nowrap;
+}
+
+.data-table tbody tr {
+    transition: background 100ms ease;
+}
+
+.data-form .form-actions {
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    margin-top: var(--space-4);
+}
+
+.status-form {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+/* ==================================================================
+   Badges (priority pills)
+   ================================================================== */
+
+.badge {
+    display: inline-block;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.6;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
+}
+
+.badge--low {
+    background: var(--color-info-bg);
+    color: var(--color-info);
+    border-color: var(--color-info-border);
+}
+
+.badge--medium {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+    border-color: var(--color-warning-border);
+}
+
+.badge--high {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    border-color: var(--color-danger-border);
+}
+
+/* ==================================================================
+   Filter bar (used on tickets list)
+   ================================================================== */
+
+.filter-bar {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    margin-bottom: var(--space-4);
+    box-shadow: var(--shadow-sm);
+}
+
+.filter-bar form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) auto;
+    gap: var(--space-3);
+    align-items: end;
+    margin: 0;
+}
+
+.filter-bar label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+}
+
+.filter-bar select {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 0.9375rem;
+    background: #ffffff;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.overdue {
+    color: var(--color-danger);
+    font-weight: 600;
+}
+
+.overdue::after {
+    content: ' · overdue';
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.data-table tr.row--overdue {
+    background: #fff7f7;
+}
+
+.data-table tr.row--overdue:hover {
+    background: #ffeded;
+}
+
+/* ==================================================================
+   Progress bar + subtask list
+   ================================================================== */
+
+.progress {
+    width: 100%;
+    height: 10px;
+    background: var(--color-bg);
+    border-radius: 999px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+}
+
+.progress__bar {
+    height: 100%;
+    background: var(--color-success);
+    transition: width 200ms ease;
+}
+
+.subtask-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.subtask-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.subtask-list li:last-child {
+    border-bottom: none;
+}
+
+/* ==================================================================
+   Comments
+   ================================================================== */
+
+.comment-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.comment {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.comment:last-child {
+    border-bottom: none;
+}
+
+.comment__meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: 6px;
+    font-size: 0.875rem;
+}
+
+.comment__author {
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.comment__time {
+    color: var(--color-text-muted);
+}
+
+.comment__body {
+    margin: 0;
+    white-space: pre-wrap;
+    color: var(--color-text);
+}
+
+.comment__replies {
+    list-style: none;
+    margin: var(--space-3) 0 0;
+    padding-left: var(--space-5);
+    border-left: 2px solid var(--color-border);
+}
+
+.comment__replies .comment {
+    padding: var(--space-3) 0 var(--space-3) var(--space-3);
+}
+
+/* ==================================================================
+   CSS bar chart (reports)
+   ================================================================== */
+
+.bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin: 0;
+}
+
+.bar-chart__row {
+    display: grid;
+    grid-template-columns: 120px 1fr 50px;
+    gap: var(--space-3);
+    align-items: center;
+}
+
+.bar-chart__label {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    text-transform: capitalize;
+}
+
+.bar-chart__track {
+    background: var(--color-bg);
+    border-radius: 999px;
+    height: 18px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+}
+
+.bar-chart__fill {
+    height: 100%;
+    transition: width 200ms ease;
+}
+
+.bar-chart__fill--open        { background: var(--color-info); }
+.bar-chart__fill--in_progress { background: var(--color-warning); }
+.bar-chart__fill--resolved    { background: var(--color-success); }
+.bar-chart__fill--closed      { background: var(--color-text-subtle); }
+
+.bar-chart__value {
+    font-weight: 600;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.page-intro + .stats-grid {
+    margin-top: var(--space-2);
+}
+
+/* ==================================================================
    Forms (shared inputs/labels for data-form)
    ================================================================== */
 

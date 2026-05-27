@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"c:/Users/Pradeep/OneDrive/Documents/TaskDesk\" log --oneline)",
+      "Bash(git -C \"c:/Users/Pradeep/OneDrive/Documents/TaskDesk\" status --short)",
+      "Bash(git -C \"c:/Users/Pradeep/OneDrive/Documents/TaskDesk\" stash list)",
+      "Bash(git -C \"c:/Users/Pradeep/OneDrive/Documents/TaskDesk\" reflog -10)",
+      "Bash(git -C \"c:/Users/Pradeep/OneDrive/Documents/TaskDesk\" show --stat acf847d)",
+      "Bash(curl -s -o /dev/null -w \"server: %{http_code}\\\\n\" http://localhost:8000/login.php)",
+      "Bash(cd /tmp)",
+      "Bash(rm -f c.txt)",
+      "Bash(curl -s -c c.txt -b c.txt http://localhost:8000/login.php)",
+      "Bash(curl -s -c c.txt -b c.txt -L -o /dev/null -d \"email=test@example.com&password=secret123\" http://localhost:8000/login.php)",
+      "Bash(curl -s -c c.txt -b c.txt -o /dev/null -w \"/ticket.php?id=1 -> HTTP %{http_code}\\\\n\" \"http://localhost:8000/ticket.php?id=1\")"
+    ]
+  }
+}

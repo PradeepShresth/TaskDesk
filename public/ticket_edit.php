@@ -1,29 +1,33 @@
 <?php
 require_once __DIR__ . '/../includes/auth_guard.php';
 
-$page_title = 'New ticket';
+$id = 0;
+if (isset($_GET['id']))            $id = (int)$_GET['id'];
+elseif (isset($_POST['ticket_id'])) $id = (int)$_POST['ticket_id'];
+
+if ($id <= 0) {
+    flash_set('error', 'Ticket not found.');
+    redirect('tickets.php');
+}
+
+$stmt = $conn->prepare('SELECT * FROM tickets WHERE ticket_id = ? LIMIT 1');
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$ticket = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$ticket) {
+    flash_set('error', 'Ticket not found.');
+    redirect('tickets.php');
+}
 
 $errors           = [];
-$title            = '';
-$description      = '';
-$priority         = 'medium';
-$due_date         = '';
-$assigned_user_id = '';
-
-$parent_ticket_id = '';
-if (isset($_GET['parent_id']))           $parent_ticket_id = (string)(int)$_GET['parent_id'];
-elseif (isset($_POST['parent_ticket_id'])) $parent_ticket_id = clean_input($_POST['parent_ticket_id']);
-
-$parent_ticket = null;
-if ($parent_ticket_id !== '' && ctype_digit($parent_ticket_id)) {
-    $stmt = $conn->prepare('SELECT ticket_id, title FROM tickets WHERE ticket_id = ? LIMIT 1');
-    $pid = (int)$parent_ticket_id;
-    $stmt->bind_param('i', $pid);
-    $stmt->execute();
-    $parent_ticket = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-    if (!$parent_ticket) $parent_ticket_id = '';
-}
+$title            = $ticket['title'];
+$description      = $ticket['description'] ?? '';
+$priority         = $ticket['priority'];
+$status           = $ticket['status'];
+$due_date         = $ticket['due_date'] ?? '';
+$assigned_user_id = $ticket['assigned_user_id'] !== null ? (string)$ticket['assigned_user_id'] : '';
 
 $users_result = $conn->query('SELECT user_id, name FROM users ORDER BY name');
 $all_users = $users_result ? $users_result->fetch_all(MYSQLI_ASSOC) : [];
@@ -33,24 +37,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title            = clean_input($_POST['title']            ?? '');
     $description      = clean_input($_POST['description']      ?? '');
     $priority         = clean_input($_POST['priority']         ?? 'medium');
+    $status           = clean_input($_POST['status']           ?? 'open');
     $due_date         = clean_input($_POST['due_date']         ?? '');
     $assigned_user_id = clean_input($_POST['assigned_user_id'] ?? '');
 
-    if ($title === '') {
-        $errors[] = 'Title is required.';
-    } elseif (strlen($title) > 200) {
-        $errors[] = 'Title must be 200 characters or fewer.';
-    }
+    if ($title === '')                   $errors[] = 'Title is required.';
+    elseif (strlen($title) > 200)        $errors[] = 'Title must be 200 characters or fewer.';
 
-    if (!in_array($priority, ['low', 'medium', 'high'], true)) {
+    if (!in_array($priority, ['low', 'medium', 'high'], true))
         $errors[] = 'Please choose a valid priority.';
-    }
+
+    if (!in_array($status, ['open', 'in_progress', 'resolved', 'closed'], true))
+        $errors[] = 'Please choose a valid status.';
 
     if ($due_date !== '') {
         $d = DateTime::createFromFormat('Y-m-d', $due_date);
-        if (!$d || $d->format('Y-m-d') !== $due_date) {
+        if (!$d || $d->format('Y-m-d') !== $due_date)
             $errors[] = 'Due date must be a valid date (YYYY-MM-DD).';
-        }
     }
 
     $assignee_value = null;
@@ -67,83 +70,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
         $description_value = $description !== '' ? $description : null;
         $due_value         = $due_date    !== '' ? $due_date    : null;
-        $parent_value      = ($parent_ticket && $parent_ticket_id !== '')
-            ? (int)$parent_ticket_id : null;
 
         $stmt = $conn->prepare(
-            'INSERT INTO tickets
-                (title, description, priority, due_date,
-                 assigned_user_id, parent_ticket_id, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'UPDATE tickets
+                SET title = ?, description = ?, priority = ?, status = ?,
+                    due_date = ?, assigned_user_id = ?
+              WHERE ticket_id = ?'
         );
         $stmt->bind_param(
-            'ssssiii',
+            'sssssii',
             $title,
             $description_value,
             $priority,
+            $status,
             $due_value,
             $assignee_value,
-            $parent_value,
-            $current_user_id
+            $id
         );
         $stmt->execute();
-        $new_id = $stmt->insert_id;
         $stmt->close();
 
-        flash_set(
-            'success',
-            ($parent_value ? 'Subtask' : 'Ticket') . ' #' . $new_id . ' created.'
-        );
-        redirect($parent_value ? 'ticket.php?id=' . $parent_value : 'dashboard.php');
+        flash_set('success', 'Ticket #' . $id . ' updated.');
+        redirect('ticket.php?id=' . $id);
     }
 }
 
+$page_title = 'Edit ticket #' . $id;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="page-intro">
     <div>
-        <h1><?= $parent_ticket ? 'New subtask' : 'New ticket' ?></h1>
-        <?php if ($parent_ticket): ?>
-            <p class="text-muted">
-                Adding under
-                <a href="<?= e(url('ticket.php?id=' . (int)$parent_ticket['ticket_id'])) ?>">
-                    #<?= (int)$parent_ticket['ticket_id'] ?> <?= e($parent_ticket['title']) ?>
-                </a>
-            </p>
-        <?php else: ?>
-            <p class="text-muted">Capture an issue or task for your team to pick up.</p>
-        <?php endif; ?>
+        <p class="text-muted" style="margin: 0 0 4px;">Ticket #<?= (int)$id ?></p>
+        <h1>Edit ticket</h1>
     </div>
-    <a class="btn btn--secondary" href="<?= e(url($parent_ticket ? 'ticket.php?id=' . (int)$parent_ticket['ticket_id'] : 'dashboard.php')) ?>">Cancel</a>
+    <div class="page-intro__actions">
+        <a class="btn btn--secondary" href="<?= e(url('ticket.php?id=' . $id)) ?>">Cancel</a>
+    </div>
 </section>
 
 <?php if (!empty($errors)): ?>
     <div class="flash flash--error">
-        <ul style="margin:0; padding-left: 20px;">
-            <?php foreach ($errors as $err): ?>
-                <li><?= e($err) ?></li>
-            <?php endforeach; ?>
+        <ul style="margin:0; padding-left:20px;">
+            <?php foreach ($errors as $err): ?><li><?= e($err) ?></li><?php endforeach; ?>
         </ul>
     </div>
 <?php endif; ?>
 
 <div class="card">
-    <form class="data-form" method="post" action="<?= e(url('ticket_create.php')) ?>" novalidate>
+    <form class="data-form" method="post" action="<?= e(url('ticket_edit.php')) ?>" novalidate>
         <?= csrf_field() ?>
-        <?php if ($parent_ticket): ?>
-            <input type="hidden" name="parent_ticket_id" value="<?= (int)$parent_ticket['ticket_id'] ?>">
-        <?php endif; ?>
+        <input type="hidden" name="ticket_id" value="<?= (int)$id ?>">
         <p>
             <label for="title">Title <span class="required">*</span></label>
             <input type="text" id="title" name="title"
-                   value="<?= e($title) ?>" required maxlength="200" autofocus>
+                   value="<?= e($title) ?>" required maxlength="200">
         </p>
         <p>
             <label for="description">Description</label>
             <textarea id="description" name="description" rows="5"><?= e($description) ?></textarea>
         </p>
         <div class="form-row">
+            <p>
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $val => $label): ?>
+                        <option value="<?= e($val) ?>" <?= $status === $val ? 'selected' : '' ?>>
+                            <?= e($label) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </p>
             <p>
                 <label for="priority">Priority</label>
                 <select id="priority" name="priority">
@@ -172,7 +169,7 @@ require_once __DIR__ . '/../includes/header.php';
             </p>
         </div>
         <p>
-            <button type="submit" class="btn btn--primary">Create ticket</button>
+            <button type="submit" class="btn btn--primary">Save changes</button>
         </p>
     </form>
 </div>
