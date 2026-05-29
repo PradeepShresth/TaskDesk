@@ -1,13 +1,36 @@
 <?php
 require_once __DIR__ . '/../includes/auth_guard.php';
 
+if (!function_exists('avatar_initials')) {
+    function avatar_initials($name) {
+        $name = trim((string)$name);
+        if ($name === '') return '?';
+        $parts = preg_split('/\s+/', $name);
+        $initials = '';
+        foreach ($parts as $p) {
+            if ($p !== '' && strlen($initials) < 2) {
+                $initials .= strtoupper($p[0]);
+            }
+        }
+        return $initials !== '' ? $initials : '?';
+    }
+    function avatar_hue($name) {
+        // Deterministic colour per user (0–359).
+        return crc32((string)$name) % 360;
+    }
+}
+
 if (!function_exists('render_comment')) {
     function render_comment($c, $children_by_parent, $ticket_id) {
         $cid = (int)$c['comment_id'];
         $children = $children_by_parent[$cid] ?? [];
+        $hue = avatar_hue($c['author_name']);
         ?>
         <li class="comment" id="comment-<?= $cid ?>">
             <div class="comment__meta">
+                <span class="avatar" style="--avatar-hue: <?= (int)$hue ?>;">
+                    <?= e(avatar_initials($c['author_name'])) ?>
+                </span>
                 <span class="comment__author"><?= e($c['author_name']) ?></span>
                 <span class="comment__time">
                     &middot; <?= e(date('M j, Y g:i A', strtotime($c['created_at']))) ?>
@@ -155,6 +178,15 @@ $stmt->execute();
 $history = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+// Lookup table so assignee_changed history rows can show names, not IDs.
+$user_names = [];
+$res_users = $conn->query('SELECT user_id, name FROM users');
+while ($u = $res_users->fetch_assoc()) {
+    $user_names[(string)$u['user_id']] = $u['name'];
+}
+
+$is_overdue = ticket_is_overdue($ticket['due_date'], $ticket['status']);
+
 $page_title = 'Ticket #' . $ticket['ticket_id'];
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -165,20 +197,6 @@ require_once __DIR__ . '/../includes/header.php';
             Ticket #<?= (int)$ticket['ticket_id'] ?>
         </p>
         <h1><?= e($ticket['title']) ?></h1>
-        <p class="text-muted">
-            <span class="status-text status-text--<?= e($ticket['status']) ?>">
-                <?= e(str_replace('_', ' ', $ticket['status'])) ?>
-            </span>
-            &middot;
-            <span class="badge badge--<?= e($ticket['priority']) ?>"><?= e($ticket['priority']) ?></span>
-            <?php if ($ticket['due_date']): ?>
-                &middot;
-                <?php $is_overdue = ticket_is_overdue($ticket['due_date'], $ticket['status']); ?>
-                <span class="<?= $is_overdue ? 'overdue' : '' ?>">
-                    Due <?= e(date('M j, Y', strtotime($ticket['due_date']))) ?>
-                </span>
-            <?php endif; ?>
-        </p>
     </div>
     <div class="page-intro__actions">
         <a class="btn btn--secondary" href="<?= e(url('tickets.php')) ?>">&larr; Back</a>
@@ -194,166 +212,230 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
 </section>
 
-<div class="card">
-    <h2>Quick status update</h2>
-    <form method="post" action="<?= e(url('ticket.php')) ?>" class="status-form">
-        <input type="hidden" name="action" value="set_status">
-        <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
-        <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $val => $label): ?>
-            <button type="submit" name="status" value="<?= e($val) ?>"
-                    class="btn btn--sm <?= $ticket['status'] === $val ? 'btn--primary' : 'btn--secondary' ?>">
-                <?= e($label) ?>
-            </button>
-        <?php endforeach; ?>
-    </form>
-</div>
+<div class="ticket-layout">
+    <div class="ticket-layout__main">
 
-<div class="card">
-    <h2>Description</h2>
-    <?php if (!empty($ticket['description'])): ?>
-        <p style="white-space: pre-wrap; margin: 0;"><?= e($ticket['description']) ?></p>
-    <?php else: ?>
-        <p class="text-muted" style="margin: 0;">No description provided.</p>
-    <?php endif; ?>
-</div>
-
-<div class="card">
-    <div class="page-intro" style="margin-bottom: var(--space-3);">
-        <div>
-            <h2 style="margin: 0;">Subtasks</h2>
-            <?php if ($subtasks_total > 0): ?>
-                <p class="text-muted" style="margin: 4px 0 0;">
-                    <?= $subtasks_done ?> of <?= $subtasks_total ?> done
-                </p>
+        <div class="card">
+            <h2>Description</h2>
+            <?php if (!empty($ticket['description'])): ?>
+                <p style="white-space: pre-wrap; margin: 0;"><?= e($ticket['description']) ?></p>
+            <?php else: ?>
+                <p class="text-muted" style="margin: 0;">No description provided.</p>
             <?php endif; ?>
         </div>
-        <a class="btn btn--secondary btn--sm"
-           href="<?= e(url('ticket_create.php?parent_id=' . (int)$ticket['ticket_id'])) ?>">
-            + Add subtask
-        </a>
+
+        <div class="card">
+            <div class="page-intro" style="margin-bottom: var(--space-3);">
+                <div>
+                    <h2 style="margin: 0;">Subtasks</h2>
+                    <?php if ($subtasks_total > 0): ?>
+                        <p class="text-muted" style="margin: 4px 0 0;">
+                            <?= $subtasks_done ?> of <?= $subtasks_total ?> done
+                        </p>
+                    <?php endif; ?>
+                </div>
+                <a class="btn btn--secondary btn--sm"
+                   href="<?= e(url('ticket_create.php?parent_id=' . (int)$ticket['ticket_id'])) ?>">
+                    + Add subtask
+                </a>
+            </div>
+
+            <?php if ($subtasks_total === 0): ?>
+                <p class="text-muted" style="margin: 0;">No subtasks yet.</p>
+            <?php else: ?>
+                <div class="progress" style="margin-bottom: var(--space-4);">
+                    <div class="progress__bar" style="width: <?= (int)$subtasks_pct ?>%;"></div>
+                </div>
+                <ul class="subtask-list">
+                    <?php foreach ($subtasks as $s): ?>
+                        <li>
+                            <a href="<?= e(url('ticket.php?id=' . (int)$s['ticket_id'])) ?>">
+                                <?= e($s['title']) ?>
+                            </a>
+                            <span class="status-text status-text--<?= e($s['status']) ?>">
+                                <?= e(str_replace('_', ' ', $s['status'])) ?>
+                            </span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </div>
+
+        <div class="card">
+            <h2>Comments (<?= count($all_comments) ?>)</h2>
+
+            <form class="data-form comment-form" method="post" action="<?= e(url('comment_post.php')) ?>">
+                <div class="comment-form__row">
+                    <span class="avatar" style="--avatar-hue: <?= (int)avatar_hue($current_user_name) ?>;">
+                        <?= e(avatar_initials($current_user_name)) ?>
+                    </span>
+                    <div class="comment-form__field">
+                        <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
+                        <label for="comment_text" class="sr-only">Comment</label>
+                        <textarea id="comment_text" name="comment_text" rows="3"
+                                  placeholder="Share an update, ask a question&hellip;" required></textarea>
+                        <div class="comment-form__actions">
+                            <span class="text-muted" style="font-size: 0.8125rem;">
+                                Tip: press Ctrl+Enter to post.
+                            </span>
+                            <button type="submit" class="btn btn--primary btn--sm">Post comment</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <?php if (empty($top_comments)): ?>
+                <p class="text-muted" style="margin: var(--space-4) 0 0;">No comments yet.</p>
+            <?php else: ?>
+                <ul class="comment-list" style="margin-top: var(--space-4);">
+                    <?php foreach ($top_comments as $c) {
+                        render_comment($c, $children_by_parent, (int)$ticket['ticket_id']);
+                    } ?>
+                </ul>
+            <?php endif; ?>
+        </div>
+
     </div>
 
-    <?php if ($subtasks_total === 0): ?>
-        <p class="text-muted" style="margin: 0;">No subtasks yet.</p>
-    <?php else: ?>
-        <div class="progress" style="margin-bottom: var(--space-4);">
-            <div class="progress__bar" style="width: <?= (int)$subtasks_pct ?>%;"></div>
-        </div>
-        <ul class="subtask-list">
-            <?php foreach ($subtasks as $s): ?>
-                <li>
-                    <a href="<?= e(url('ticket.php?id=' . (int)$s['ticket_id'])) ?>">
-                        <?= e($s['title']) ?>
-                    </a>
-                    <span>
-                        <span class="status-text status-text--<?= e($s['status']) ?>">
-                            <?= e(str_replace('_', ' ', $s['status'])) ?>
+    <aside class="ticket-layout__sidebar">
+
+        <div class="card">
+            <h3 class="sidebar-card__title">Properties</h3>
+            <div class="props">
+
+                <div class="props__row">
+                    <div class="props__label">Status</div>
+                    <form method="post" action="<?= e(url('ticket.php')) ?>" class="status-form status-form--grid">
+                        <input type="hidden" name="action" value="set_status">
+                        <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
+                        <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $val => $label): ?>
+                            <button type="submit" name="status" value="<?= e($val) ?>"
+                                    class="btn btn--sm <?= $ticket['status'] === $val ? 'btn--primary' : 'btn--secondary' ?>">
+                                <?= e($label) ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </form>
+                </div>
+
+                <div class="props__row">
+                    <div class="props__label">Priority</div>
+                    <div class="props__value">
+                        <span class="badge badge--<?= e($ticket['priority']) ?>"><?= e($ticket['priority']) ?></span>
+                    </div>
+                </div>
+
+                <div class="props__row">
+                    <div class="props__label">Due date</div>
+                    <div class="props__value">
+                        <?php if ($ticket['due_date']): ?>
+                            <span class="<?= $is_overdue ? 'overdue' : '' ?>">
+                                <?= e(date('M j, Y', strtotime($ticket['due_date']))) ?>
+                            </span>
+                        <?php else: ?>
+                            <span class="text-muted">No due date</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="props__row">
+                    <div class="props__label">Assignee</div>
+                    <div class="props__value">
+                        <?php if (!empty($ticket['assignee_name'])): ?>
+                            <span class="props__user">
+                                <span class="avatar" style="--avatar-hue: <?= (int)avatar_hue($ticket['assignee_name']) ?>;">
+                                    <?= e(avatar_initials($ticket['assignee_name'])) ?>
+                                </span>
+                                <span><?= e($ticket['assignee_name']) ?></span>
+                            </span>
+                        <?php else: ?>
+                            <span class="text-muted">Unassigned</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="props__row">
+                    <div class="props__label">Created by</div>
+                    <div class="props__value">
+                        <?php $creator = $ticket['creator_name'] ?? 'Unknown'; ?>
+                        <span class="props__user">
+                            <span class="avatar" style="--avatar-hue: <?= (int)avatar_hue($creator) ?>;">
+                                <?= e(avatar_initials($creator)) ?>
+                            </span>
+                            <span><?= e($creator) ?></span>
                         </span>
-                    </span>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-    <?php endif; ?>
-</div>
+                    </div>
+                </div>
 
-<div class="card">
-    <h2>Details</h2>
-    <dl class="detail-list">
-        <dt>Assignee</dt>
-        <dd>
-            <?php if (!empty($ticket['assignee_name'])): ?>
-                <?= e($ticket['assignee_name']) ?>
+                <div class="props__row">
+                    <div class="props__label">Created</div>
+                    <div class="props__value text-muted">
+                        <?= e(date('M j, Y g:i A', strtotime($ticket['created_at']))) ?>
+                    </div>
+                </div>
+
+                <div class="props__row">
+                    <div class="props__label">Last updated</div>
+                    <div class="props__value text-muted">
+                        <?= e(date('M j, Y g:i A', strtotime($ticket['updated_at']))) ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 class="sidebar-card__title">History (<?= count($history) ?>)</h3>
+            <?php if (empty($history)): ?>
+                <p class="text-muted" style="margin: 0;">No changes recorded yet.</p>
             <?php else: ?>
-                <span class="text-muted">Unassigned</span>
+                <ul class="history-list">
+                    <?php foreach ($history as $h): ?>
+                        <li class="history-item">
+                            <span class="history-item__icon history-item__icon--<?= e($h['event_type']) ?>" aria-hidden="true"></span>
+                            <div class="history-item__body">
+                                <span class="history-item__what">
+                                    <?php
+                                    $actor = $h['actor_name'] ?? 'Someone';
+                                    switch ($h['event_type']) {
+                                        case 'created':
+                                            echo '<strong>' . e($actor) . '</strong> created the ticket';
+                                            break;
+                                        case 'status_changed':
+                                            echo '<strong>' . e($actor) . '</strong> moved to <em>'
+                                                . e(str_replace('_', ' ', $h['new_value'] ?? '?')) . '</em>';
+                                            break;
+                                        case 'priority_changed':
+                                            echo '<strong>' . e($actor) . '</strong> set priority <em>'
+                                                . e($h['new_value'] ?? '?') . '</em>';
+                                            break;
+                                        case 'assignee_changed':
+                                            $to_name = ($h['new_value'] && isset($user_names[$h['new_value']]))
+                                                ? $user_names[$h['new_value']]
+                                                : null;
+                                            if ($to_name) {
+                                                echo '<strong>' . e($actor) . '</strong> assigned to <em>' . e($to_name) . '</em>';
+                                            } else {
+                                                echo '<strong>' . e($actor) . '</strong> removed the assignee';
+                                            }
+                                            break;
+                                        case 'edited':
+                                            echo '<strong>' . e($actor) . '</strong> edited the ticket';
+                                            break;
+                                        default:
+                                            echo '<strong>' . e($actor) . '</strong> ' . e($h['event_type']);
+                                    }
+                                    ?>
+                                </span>
+                                <span class="history-item__when">
+                                    <?= e(date('M j, g:i A', strtotime($h['created_at']))) ?>
+                                </span>
+                            </div>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
             <?php endif; ?>
-        </dd>
+        </div>
 
-        <dt>Created by</dt>
-        <dd><?= e($ticket['creator_name'] ?? 'Unknown') ?></dd>
-
-        <dt>Created</dt>
-        <dd><?= e(date('M j, Y g:i A', strtotime($ticket['created_at']))) ?></dd>
-
-        <dt>Last updated</dt>
-        <dd><?= e(date('M j, Y g:i A', strtotime($ticket['updated_at']))) ?></dd>
-    </dl>
-</div>
-
-<div class="card">
-    <h2>History (<?= count($history) ?>)</h2>
-    <?php if (empty($history)): ?>
-        <p class="text-muted" style="margin: 0;">No changes recorded yet.</p>
-    <?php else: ?>
-        <ul class="history-list">
-            <?php foreach ($history as $h): ?>
-                <li class="history-item">
-                    <span class="history-item__when">
-                        <?= e(date('M j, Y g:i A', strtotime($h['created_at']))) ?>
-                    </span>
-                    <span class="history-item__what">
-                        <?php
-                        $actor = $h['actor_name'] ?? 'Someone';
-                        switch ($h['event_type']) {
-                            case 'created':
-                                echo e($actor) . ' created the ticket';
-                                break;
-                            case 'status_changed':
-                                echo e($actor) . ' changed status from <strong>'
-                                    . e(str_replace('_', ' ', $h['old_value'] ?? '?')) . '</strong> to <strong>'
-                                    . e(str_replace('_', ' ', $h['new_value'] ?? '?')) . '</strong>';
-                                break;
-                            case 'priority_changed':
-                                echo e($actor) . ' changed priority from <strong>'
-                                    . e($h['old_value'] ?? '?') . '</strong> to <strong>'
-                                    . e($h['new_value'] ?? '?') . '</strong>';
-                                break;
-                            case 'assignee_changed':
-                                $from = $h['old_value'] ? '#' . $h['old_value'] : 'Unassigned';
-                                $to   = $h['new_value'] ? '#' . $h['new_value'] : 'Unassigned';
-                                echo e($actor) . ' changed assignee from <strong>'
-                                    . e($from) . '</strong> to <strong>' . e($to) . '</strong>';
-                                break;
-                            case 'edited':
-                                echo e($actor) . ' edited the ticket';
-                                break;
-                            default:
-                                echo e($actor) . ' ' . e($h['event_type']);
-                        }
-                        ?>
-                    </span>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-    <?php endif; ?>
-</div>
-
-<div class="card">
-    <h2>Add a comment</h2>
-    <form class="data-form" method="post" action="<?= e(url('comment_post.php')) ?>">
-        <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
-        <p>
-            <label for="comment_text" class="sr-only">Comment</label>
-            <textarea id="comment_text" name="comment_text" rows="3"
-                      placeholder="Share an update, ask a question…" required></textarea>
-        </p>
-        <p>
-            <button type="submit" class="btn btn--primary">Post comment</button>
-        </p>
-    </form>
-</div>
-
-<div class="card">
-    <h2>Comments (<?= count($all_comments) ?>)</h2>
-
-    <?php if (empty($top_comments)): ?>
-        <p class="text-muted" style="margin: 0;">No comments yet.</p>
-    <?php else: ?>
-        <ul class="comment-list">
-            <?php foreach ($top_comments as $c) {
-                render_comment($c, $children_by_parent, (int)$ticket['ticket_id']);
-            } ?>
-        </ul>
-    <?php endif; ?>
+    </aside>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

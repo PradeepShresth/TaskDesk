@@ -75,8 +75,40 @@ $stmt->execute();
 $tickets = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+$total_all = (int)$conn->query('SELECT COUNT(*) AS c FROM tickets')->fetch_assoc()['c'];
+
 $users_result = $conn->query('SELECT user_id, name FROM users ORDER BY name');
 $all_users = $users_result ? $users_result->fetch_all(MYSQLI_ASSOC) : [];
+
+// Active filter chips (label + URL with that param removed)
+$status_labels   = ['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'];
+$priority_labels = ['low' => 'Low', 'medium' => 'Medium', 'high' => 'High'];
+$due_labels      = ['overdue' => 'Overdue', 'this_week' => 'Next 7 days', 'has_date' => 'Has due date', 'no_date' => 'No due date'];
+
+$user_lookup = [];
+foreach ($all_users as $u) $user_lookup[(string)$u['user_id']] = $u['name'];
+
+$chip_url = function ($remove_key) {
+    $params = $_GET;
+    unset($params[$remove_key]);
+    return 'tickets.php' . (empty($params) ? '' : '?' . http_build_query($params));
+};
+
+$chips = [];
+if (isset($status_labels[$f_status])) {
+    $chips[] = ['label' => 'Status: ' . $status_labels[$f_status], 'remove' => $chip_url('status')];
+}
+if (isset($priority_labels[$f_priority])) {
+    $chips[] = ['label' => 'Priority: ' . $priority_labels[$f_priority], 'remove' => $chip_url('priority')];
+}
+if (isset($user_lookup[$f_assignee])) {
+    $chips[] = ['label' => 'Assignee: ' . $user_lookup[$f_assignee], 'remove' => $chip_url('assignee')];
+}
+if (isset($due_labels[$f_due])) {
+    $chips[] = ['label' => 'Due: ' . $due_labels[$f_due], 'remove' => $chip_url('due')];
+}
+
+$is_filtered = !empty($where);
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -85,85 +117,87 @@ require_once __DIR__ . '/../includes/header.php';
     <div>
         <h1>Tickets</h1>
         <p class="text-muted">
-            <?= count($tickets) ?>
-            ticket<?= count($tickets) === 1 ? '' : 's' ?>
-            <?= ($where ? 'matching filters' : 'total') ?>.
+            <?php if ($is_filtered): ?>
+                Showing <strong><?= count($tickets) ?></strong> of <?= $total_all ?> tickets
+            <?php else: ?>
+                <strong><?= $total_all ?></strong> ticket<?= $total_all === 1 ? '' : 's' ?> total
+            <?php endif; ?>
         </p>
     </div>
     <a class="btn btn--primary" href="<?= e(url('ticket_create.php')) ?>">+ New ticket</a>
 </section>
 
-<div class="filter-bar">
-    <form method="get" action="<?= e(url('tickets.php')) ?>">
-        <div>
-            <label for="filter-status">Status</label>
-            <select id="filter-status" name="status">
-                <option value="">All</option>
-                <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $v => $l): ?>
-                    <option value="<?= e($v) ?>" <?= $f_status === $v ? 'selected' : '' ?>><?= e($l) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div>
-            <label for="filter-priority">Priority</label>
-            <select id="filter-priority" name="priority">
-                <option value="">All</option>
-                <?php foreach (['low' => 'Low', 'medium' => 'Medium', 'high' => 'High'] as $v => $l): ?>
-                    <option value="<?= e($v) ?>" <?= $f_priority === $v ? 'selected' : '' ?>><?= e($l) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div>
-            <label for="filter-assignee">Assignee</label>
-            <select id="filter-assignee" name="assignee">
-                <option value="">Anyone</option>
-                <?php foreach ($all_users as $u): ?>
-                    <option value="<?= (int)$u['user_id'] ?>"
-                            <?= $f_assignee === (string)$u['user_id'] ? 'selected' : '' ?>>
-                        <?= e($u['name']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div>
-            <label for="filter-due">Due</label>
-            <select id="filter-due" name="due">
-                <option value="">Any</option>
-                <?php foreach (['overdue' => 'Overdue', 'this_week' => 'Next 7 days', 'has_date' => 'Has due date', 'no_date' => 'No due date'] as $v => $l): ?>
-                    <option value="<?= e($v) ?>" <?= $f_due === $v ? 'selected' : '' ?>><?= e($l) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div>
-            <label for="filter-sort">Sort by</label>
-            <select id="filter-sort" name="sort">
-                <?php foreach (['created_desc' => 'Newest first', 'due_asc' => 'Due date (soonest)', 'priority_high' => 'Priority (high first)'] as $v => $l): ?>
-                    <option value="<?= e($v) ?>" <?= $f_sort === $v ? 'selected' : '' ?>><?= e($l) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div>
-            <button type="submit" class="btn btn--primary">Apply</button>
-            <?php if ($where): ?>
-                <a href="<?= e(url('tickets.php')) ?>" class="btn btn--secondary">Clear</a>
-            <?php endif; ?>
-        </div>
-    </form>
-</div>
+<form class="filter-bar" method="get" action="<?= e(url('tickets.php')) ?>" data-auto-submit>
+    <div class="filter-bar__filters">
+        <select name="status" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <?php foreach ($status_labels as $v => $l): ?>
+                <option value="<?= e($v) ?>" <?= $f_status === $v ? 'selected' : '' ?>><?= e($l) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <select name="priority" aria-label="Filter by priority">
+            <option value="">All priorities</option>
+            <?php foreach ($priority_labels as $v => $l): ?>
+                <option value="<?= e($v) ?>" <?= $f_priority === $v ? 'selected' : '' ?>><?= e($l) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <select name="assignee" aria-label="Filter by assignee">
+            <option value="">Any assignee</option>
+            <?php foreach ($all_users as $u): ?>
+                <option value="<?= (int)$u['user_id'] ?>"
+                        <?= $f_assignee === (string)$u['user_id'] ? 'selected' : '' ?>>
+                    <?= e($u['name']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <select name="due" aria-label="Filter by due date">
+            <option value="">Any due date</option>
+            <?php foreach ($due_labels as $v => $l): ?>
+                <option value="<?= e($v) ?>" <?= $f_due === $v ? 'selected' : '' ?>><?= e($l) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <div class="filter-bar__sort">
+        <label for="filter-sort">Sort</label>
+        <select id="filter-sort" name="sort">
+            <?php foreach (['created_desc' => 'Newest first', 'due_asc' => 'Due date (soonest)', 'priority_high' => 'Priority (high first)'] as $v => $l): ?>
+                <option value="<?= e($v) ?>" <?= $f_sort === $v ? 'selected' : '' ?>><?= e($l) ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <noscript>
+        <button type="submit" class="btn btn--primary btn--sm">Apply</button>
+    </noscript>
+</form>
+
+<?php if (!empty($chips)): ?>
+    <div class="filter-chips">
+        <?php foreach ($chips as $chip): ?>
+            <a class="filter-chip" href="<?= e(url($chip['remove'])) ?>">
+                <span><?= e($chip['label']) ?></span>
+                <span class="filter-chip__x" aria-hidden="true">&times;</span>
+            </a>
+        <?php endforeach; ?>
+        <?php if (count($chips) > 1): ?>
+            <a class="filter-chips__clear" href="<?= e(url('tickets.php')) ?>">Clear all</a>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
 <?php if (empty($tickets)): ?>
-    <div class="card">
-        <h2><?= $where ? 'No tickets match those filters' : 'No tickets yet' ?></h2>
+    <div class="card empty-state">
+        <h2><?= $is_filtered ? 'No tickets match those filters' : 'No tickets yet' ?></h2>
         <p class="text-muted">
-            <?= $where
+            <?= $is_filtered
                 ? 'Try clearing some filters or creating a new ticket.'
                 : 'Get started by creating the first ticket for your team.' ?>
         </p>
-        <p>
-            <a class="btn btn--primary" href="<?= e(url('ticket_create.php')) ?>">
-                Create a ticket
-            </a>
-        </p>
+        <div class="empty-state__actions">
+            <?php if ($is_filtered): ?>
+                <a class="btn btn--secondary" href="<?= e(url('tickets.php')) ?>">Clear filters</a>
+            <?php endif; ?>
+            <a class="btn btn--primary" href="<?= e(url('ticket_create.php')) ?>">+ New ticket</a>
+        </div>
     </div>
 <?php else: ?>
     <div class="card card--flush">
@@ -222,5 +256,15 @@ require_once __DIR__ . '/../includes/header.php';
         </table>
     </div>
 <?php endif; ?>
+
+<script>
+(function () {
+    var form = document.querySelector('form.filter-bar[data-auto-submit]');
+    if (!form) return;
+    form.querySelectorAll('select').forEach(function (sel) {
+        sel.addEventListener('change', function () { form.submit(); });
+    });
+})();
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

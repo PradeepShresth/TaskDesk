@@ -55,19 +55,28 @@ $flash_info    = flash_get('info');
             </nav>
 
             <div class="site-header__user">
-                <span class="site-header__greeting">Hi, <?= e($current_user_name) ?></span>
+                <span class="site-header__greeting">
+                    Hi, <?= e($current_user_name) ?>
+                    <?php if (is_admin()): ?>
+                        <span class="role-badge" title="Admin">Admin</span>
+                    <?php endif; ?>
+                </span>
                 <a class="btn btn--secondary btn--sm" href="<?= e(url('logout.php')) ?>">Log out</a>
             </div>
         </div>
     </header>
 
     <main class="container site-main">
-<?php if ($flash_success !== null): ?>
-        <div class="flash flash--success"><?= e($flash_success) ?></div>
-<?php endif; ?>
-<?php if ($flash_error !== null): ?>
-        <div class="flash flash--error"><?= e($flash_error) ?></div>
-<?php endif; ?>
-<?php if ($flash_info !== null): ?>
-        <div class="flash flash--info"><?= e($flash_info) ?></div>
-<?php endif; ?>
+<?php
+$flash_messages = [];
+if ($flash_success !== null) $flash_messages[] = ['type' => 'success', 'msg' => $flash_success];
+if ($flash_error   !== null) $flash_messages[] = ['type' => 'error',   'msg' => $flash_error];
+if ($flash_info    !== null) $flash_messages[] = ['type' => 'info',    'msg' => $flash_info];
+?>
+<?php foreach ($flash_messages as $f): ?>
+        <div class="flash flash--<?= e($f['type']) ?>" role="status">
+            <span class="flash__icon" aria-hidden="true"></span>
+            <span class="flash__text"><?= e($f['msg']) ?></span>
+            <button type="button" class="flash__close" aria-label="Dismiss">&times;</button>
+        </div>
+<?php endforeach; ?>
