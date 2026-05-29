@@ -5,8 +5,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('tickets.php');
 }
 
-verify_csrf();
-
 $ticket_id        = isset($_POST['ticket_id'])         ? (int)$_POST['ticket_id']         : 0;
 $parent_comment_id = isset($_POST['parent_comment_id']) ? (int)$_POST['parent_comment_id'] : 0;
 $comment_text     = clean_input($_POST['comment_text'] ?? '');

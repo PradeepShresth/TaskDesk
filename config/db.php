@@ -15,15 +15,10 @@ if (!file_exists($configFile)) {
 }
 require_once $configFile;
 
-// Throw exceptions on MySQLi errors instead of silent warnings.
-mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+$conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
 
-try {
-    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, DB_PORT);
-    $conn->set_charset('utf8mb4');
-} catch (mysqli_sql_exception $e) {
-    if (defined('APP_DEBUG') && APP_DEBUG) {
-        die('Database connection failed: ' . $e->getMessage());
-    }
-    die('Database connection failed. Please try again later.');
+if ($conn->connect_error) {
+    die('Database connection failed: ' . $conn->connect_error);
 }
+
+$conn->set_charset('utf8mb4');

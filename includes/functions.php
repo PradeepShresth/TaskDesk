@@ -96,25 +96,3 @@ function ticket_is_overdue($due_date, $status)
     return strtotime($due_date) < strtotime(date('Y-m-d'));
 }
 
-function csrf_token()
-{
-    start_app_session();
-    if (empty($_SESSION['_csrf'])) {
-        $_SESSION['_csrf'] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION['_csrf'];
-}
-
-function csrf_field()
-{
-    return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">';
-}
-
-function verify_csrf()
-{
-    $supplied = $_POST['_csrf'] ?? '';
-    if (!is_string($supplied) || !hash_equals(csrf_token(), $supplied)) {
-        http_response_code(400);
-        die('Invalid request token. Please go back and try again.');
-    }
-}

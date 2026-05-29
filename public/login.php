@@ -18,7 +18,6 @@ if ($error_flash !== null) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    verify_csrf();
     $email    = clean_input($_POST['email'] ?? '');
     $password = (string)($_POST['password'] ?? '');
 
@@ -79,7 +78,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="post" action="<?= e(url('login.php')) ?>" class="auth-form" novalidate>
-            <?= csrf_field() ?>
             <p>
                 <label for="email">Email</label>
                 <input type="email" id="email" name="email"

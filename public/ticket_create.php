@@ -29,7 +29,6 @@ $users_result = $conn->query('SELECT user_id, name FROM users ORDER BY name');
 $all_users = $users_result ? $users_result->fetch_all(MYSQLI_ASSOC) : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    verify_csrf();
     $title            = clean_input($_POST['title']            ?? '');
     $description      = clean_input($_POST['description']      ?? '');
     $priority         = clean_input($_POST['priority']         ?? 'medium');
@@ -130,7 +129,6 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="card">
     <form class="data-form" method="post" action="<?= e(url('ticket_create.php')) ?>" novalidate>
-        <?= csrf_field() ?>
         <?php if ($parent_ticket): ?>
             <input type="hidden" name="parent_ticket_id" value="<?= (int)$parent_ticket['ticket_id'] ?>">
         <?php endif; ?>

@@ -6,8 +6,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('tickets.php');
 }
 
-verify_csrf();
-
 $id = isset($_POST['ticket_id']) ? (int)$_POST['ticket_id'] : 0;
 if ($id <= 0) {
     flash_set('error', 'Ticket not found.');

@@ -54,12 +54,12 @@ MIT122 Interactive Web Design and Development
   per-user contribution table, and an overdue panel
 
 ### Security
-- All passwords hashed with `password_hash` / verified with `password_verify`
-- Session ID regenerated on login and logout
-- CSRF token on every state-changing POST form (`csrf_token` / `verify_csrf`)
-- Every user-supplied value flows through `htmlspecialchars` on output
-- Every database write goes through prepared statements
+- Authentication and authorisation via session-based login (session guard on protected pages)
+- Password hashing with `password_hash` / verification with `password_verify`
+- Session management — session ID regenerated on login and logout
 - Input validation against allow-lists for enums (status, priority)
+- Output escaping — every user-supplied value runs through `htmlspecialchars`
+- SQL injection prevention — every database write goes through MySQLi prepared statements
 
 ## Local Setup
 

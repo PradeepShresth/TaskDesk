@@ -18,7 +18,6 @@ if (!function_exists('render_comment')) {
             <details style="margin-top: 6px;">
                 <summary class="text-muted" style="cursor: pointer; font-size: 0.875rem;">Reply</summary>
                 <form class="data-form" method="post" action="<?= e(url('comment_post.php')) ?>" style="margin-top: var(--space-2);">
-                    <?= csrf_field() ?>
                     <input type="hidden" name="ticket_id" value="<?= (int)$ticket_id ?>">
                     <input type="hidden" name="parent_comment_id" value="<?= $cid ?>">
                     <p>
@@ -55,7 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
     && isset($_POST['action'])
     && $_POST['action'] === 'set_status') {
 
-    verify_csrf();
     $new_status = clean_input($_POST['status'] ?? '');
     if (in_array($new_status, ['open', 'in_progress', 'resolved', 'closed'], true)) {
         $stmt = $conn->prepare('UPDATE tickets SET status = ? WHERE ticket_id = ?');
@@ -163,7 +161,6 @@ require_once __DIR__ . '/../includes/header.php';
         <form method="post" action="<?= e(url('ticket_delete.php')) ?>"
               style="display: inline;"
               onsubmit="return confirm('Delete this ticket? This also removes its subtasks and comments.');">
-            <?= csrf_field() ?>
             <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
             <button type="submit" class="btn btn--danger">Delete</button>
         </form>
@@ -173,7 +170,6 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="card">
     <h2>Quick status update</h2>
     <form method="post" action="<?= e(url('ticket.php')) ?>" class="status-form">
-        <?= csrf_field() ?>
         <input type="hidden" name="action" value="set_status">
         <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
         <?php foreach (['open' => 'Open', 'in_progress' => 'In progress', 'resolved' => 'Resolved', 'closed' => 'Closed'] as $val => $label): ?>
@@ -259,7 +255,6 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="card">
     <h2>Add a comment</h2>
     <form class="data-form" method="post" action="<?= e(url('comment_post.php')) ?>">
-        <?= csrf_field() ?>
         <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
         <p>
             <label for="comment_text" class="sr-only">Comment</label>

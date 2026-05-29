@@ -14,7 +14,6 @@ $name   = '';
 $email  = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    verify_csrf();
     $name     = clean_input($_POST['name'] ?? '');
     $email    = clean_input($_POST['email'] ?? '');
     $password = (string)($_POST['password'] ?? '');
@@ -95,7 +94,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="post" action="<?= e(url('register.php')) ?>" class="auth-form" novalidate>
-            <?= csrf_field() ?>
             <p>
                 <label for="name">Full name</label>
                 <input type="text" id="name" name="name"
