@@ -10,9 +10,9 @@ CREATE DATABASE taskdesk
 
 USE taskdesk;
 
--- ---------------------------------------------------------------
+
 -- Users
--- ---------------------------------------------------------------
+
 CREATE TABLE users (
     user_id       INT AUTO_INCREMENT PRIMARY KEY,
     name          VARCHAR(100)        NOT NULL,
@@ -22,10 +22,10 @@ CREATE TABLE users (
     created_at    TIMESTAMP           NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- ---------------------------------------------------------------
+
 -- Tickets
 -- Supports parent/child (subtask) relationship via parent_ticket_id.
--- ---------------------------------------------------------------
+
 CREATE TABLE tickets (
     ticket_id         INT AUTO_INCREMENT PRIMARY KEY,
     title             VARCHAR(200)    NOT NULL,
@@ -58,10 +58,10 @@ CREATE TABLE tickets (
     INDEX idx_tickets_assigned (assigned_user_id)
 ) ENGINE=InnoDB;
 
--- ---------------------------------------------------------------
--- Comments
+
+
 -- Supports threaded replies via parent_comment_id.
--- ---------------------------------------------------------------
+
 CREATE TABLE comments (
     comment_id         INT AUTO_INCREMENT PRIMARY KEY,
     ticket_id          INT             NOT NULL,
