@@ -89,6 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $new_id = $stmt->insert_id;
         $stmt->close();
 
+        log_ticket_event($conn, $new_id, $current_user_id, 'created', null, $title);
+
         flash_set(
             'success',
             ($parent_value ? 'Subtask' : 'Ticket') . ' #' . $new_id . ' created.'

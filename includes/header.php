@@ -49,7 +49,9 @@ $flash_info    = flash_get('info');
             <nav class="nav">
                 <?= nav_link('dashboard.php', 'Dashboard', ['dashboard.php']) ?>
                 <?= nav_link('tickets.php',   'Tickets',   ['tickets.php', 'ticket.php', 'ticket_create.php', 'ticket_edit.php']) ?>
-                <?= nav_link('reports.php',   'Reports',   ['reports.php']) ?>
+                <?php if (is_admin()): ?>
+                    <?= nav_link('reports.php', 'Reports', ['reports.php']) ?>
+                <?php endif; ?>
             </nav>
 
             <div class="site-header__user">

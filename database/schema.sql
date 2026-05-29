@@ -82,3 +82,29 @@ CREATE TABLE comments (
 
     INDEX idx_comments_ticket (ticket_id)
 ) ENGINE=InnoDB;
+
+
+-- Ticket history (audit log)
+-- One row per significant event so the ticket detail page can show
+-- "who changed what, when".
+
+CREATE TABLE ticket_history (
+    history_id    INT AUTO_INCREMENT PRIMARY KEY,
+    ticket_id     INT             NOT NULL,
+    user_id       INT             NULL,
+    event_type    ENUM('created','status_changed','priority_changed',
+                       'assignee_changed','edited','deleted')
+                                  NOT NULL,
+    old_value     VARCHAR(150)    NULL,
+    new_value     VARCHAR(150)    NULL,
+    created_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_history_ticket
+        FOREIGN KEY (ticket_id) REFERENCES tickets(ticket_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_history_user
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON DELETE SET NULL,
+
+    INDEX idx_history_ticket (ticket_id)
+) ENGINE=InnoDB;

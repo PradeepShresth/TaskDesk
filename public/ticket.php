@@ -56,10 +56,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST'
 
     $new_status = clean_input($_POST['status'] ?? '');
     if (in_array($new_status, ['open', 'in_progress', 'resolved', 'closed'], true)) {
+        $stmt = $conn->prepare('SELECT status FROM tickets WHERE ticket_id = ? LIMIT 1');
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $old_row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $old_status = $old_row['status'] ?? null;
+
         $stmt = $conn->prepare('UPDATE tickets SET status = ? WHERE ticket_id = ?');
         $stmt->bind_param('si', $new_status, $id);
         $stmt->execute();
         $stmt->close();
+
+        if ($old_status !== null && $old_status !== $new_status) {
+            log_ticket_event($conn, $id, $current_user_id, 'status_changed', $old_status, $new_status);
+        }
+
         flash_set('success', 'Status updated to ' . str_replace('_', ' ', $new_status) . '.');
     } else {
         flash_set('error', 'Invalid status.');
@@ -130,6 +142,19 @@ foreach ($all_comments as $c) {
     }
 }
 
+// Ticket history (audit log) — newest first.
+$stmt = $conn->prepare(
+    'SELECT h.event_type, h.old_value, h.new_value, h.created_at, u.name AS actor_name
+       FROM ticket_history h
+  LEFT JOIN users u ON u.user_id = h.user_id
+      WHERE h.ticket_id = ?
+      ORDER BY h.created_at DESC'
+);
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$history = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
 $page_title = 'Ticket #' . $ticket['ticket_id'];
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -158,12 +183,14 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="page-intro__actions">
         <a class="btn btn--secondary" href="<?= e(url('tickets.php')) ?>">&larr; Back</a>
         <a class="btn btn--secondary" href="<?= e(url('ticket_edit.php?id=' . (int)$ticket['ticket_id'])) ?>">Edit</a>
-        <form method="post" action="<?= e(url('ticket_delete.php')) ?>"
-              style="display: inline;"
-              onsubmit="return confirm('Delete this ticket? This also removes its subtasks and comments.');">
-            <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
-            <button type="submit" class="btn btn--danger">Delete</button>
-        </form>
+        <?php if (is_admin()): ?>
+            <form method="post" action="<?= e(url('ticket_delete.php')) ?>"
+                  style="display: inline;"
+                  onsubmit="return confirm('Delete this ticket? This also removes its subtasks and comments.');">
+                <input type="hidden" name="ticket_id" value="<?= (int)$ticket['ticket_id'] ?>">
+                <button type="submit" class="btn btn--danger">Delete</button>
+            </form>
+        <?php endif; ?>
     </div>
 </section>
 
@@ -250,6 +277,54 @@ require_once __DIR__ . '/../includes/header.php';
         <dt>Last updated</dt>
         <dd><?= e(date('M j, Y g:i A', strtotime($ticket['updated_at']))) ?></dd>
     </dl>
+</div>
+
+<div class="card">
+    <h2>History (<?= count($history) ?>)</h2>
+    <?php if (empty($history)): ?>
+        <p class="text-muted" style="margin: 0;">No changes recorded yet.</p>
+    <?php else: ?>
+        <ul class="history-list">
+            <?php foreach ($history as $h): ?>
+                <li class="history-item">
+                    <span class="history-item__when">
+                        <?= e(date('M j, Y g:i A', strtotime($h['created_at']))) ?>
+                    </span>
+                    <span class="history-item__what">
+                        <?php
+                        $actor = $h['actor_name'] ?? 'Someone';
+                        switch ($h['event_type']) {
+                            case 'created':
+                                echo e($actor) . ' created the ticket';
+                                break;
+                            case 'status_changed':
+                                echo e($actor) . ' changed status from <strong>'
+                                    . e(str_replace('_', ' ', $h['old_value'] ?? '?')) . '</strong> to <strong>'
+                                    . e(str_replace('_', ' ', $h['new_value'] ?? '?')) . '</strong>';
+                                break;
+                            case 'priority_changed':
+                                echo e($actor) . ' changed priority from <strong>'
+                                    . e($h['old_value'] ?? '?') . '</strong> to <strong>'
+                                    . e($h['new_value'] ?? '?') . '</strong>';
+                                break;
+                            case 'assignee_changed':
+                                $from = $h['old_value'] ? '#' . $h['old_value'] : 'Unassigned';
+                                $to   = $h['new_value'] ? '#' . $h['new_value'] : 'Unassigned';
+                                echo e($actor) . ' changed assignee from <strong>'
+                                    . e($from) . '</strong> to <strong>' . e($to) . '</strong>';
+                                break;
+                            case 'edited':
+                                echo e($actor) . ' edited the ticket';
+                                break;
+                            default:
+                                echo e($actor) . ' ' . e($h['event_type']);
+                        }
+                        ?>
+                    </span>
+                </li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
 </div>
 
 <div class="card">

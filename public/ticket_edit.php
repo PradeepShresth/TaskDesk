@@ -89,6 +89,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
 
+        if ($ticket['status'] !== $status) {
+            log_ticket_event($conn, $id, $current_user_id, 'status_changed', $ticket['status'], $status);
+        }
+        if ($ticket['priority'] !== $priority) {
+            log_ticket_event($conn, $id, $current_user_id, 'priority_changed', $ticket['priority'], $priority);
+        }
+        $old_assignee = $ticket['assigned_user_id'] !== null ? (string)$ticket['assigned_user_id'] : null;
+        $new_assignee = $assignee_value !== null ? (string)$assignee_value : null;
+        if ($old_assignee !== $new_assignee) {
+            log_ticket_event($conn, $id, $current_user_id, 'assignee_changed', $old_assignee, $new_assignee);
+        }
+
         flash_set('success', 'Ticket #' . $id . ' updated.');
         redirect('ticket.php?id=' . $id);
     }

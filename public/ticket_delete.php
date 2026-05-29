@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth_guard.php';
+require_admin();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     flash_set('error', 'Invalid request.');

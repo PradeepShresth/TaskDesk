@@ -6,9 +6,15 @@ $page_title = 'Tickets';
 $f_status   = isset($_GET['status'])   ? (string)$_GET['status']   : '';
 $f_priority = isset($_GET['priority']) ? (string)$_GET['priority'] : '';
 $f_assignee = isset($_GET['assignee']) ? (string)$_GET['assignee'] : '';
+$f_due      = isset($_GET['due'])      ? (string)$_GET['due']      : '';
+$f_sort     = isset($_GET['sort'])     ? (string)$_GET['sort']     : 'created_desc';
 
 $valid_status   = ['open', 'in_progress', 'resolved', 'closed'];
 $valid_priority = ['low', 'medium', 'high'];
+$valid_due      = ['overdue', 'this_week', 'has_date', 'no_date'];
+$valid_sort     = ['created_desc', 'due_asc', 'priority_high'];
+
+if (!in_array($f_sort, $valid_sort, true)) $f_sort = 'created_desc';
 
 $where  = [];
 $params = [];
@@ -29,13 +35,39 @@ if ($f_assignee !== '' && ctype_digit($f_assignee)) {
     $params[] = (int)$f_assignee;
     $types   .= 'i';
 }
+if (in_array($f_due, $valid_due, true)) {
+    $today = date('Y-m-d');
+    if ($f_due === 'overdue') {
+        $where[]  = "t.due_date IS NOT NULL AND t.due_date < ? AND t.status NOT IN ('resolved','closed')";
+        $params[] = $today;
+        $types   .= 's';
+    } elseif ($f_due === 'this_week') {
+        $week_end = date('Y-m-d', strtotime('+7 days'));
+        $where[]  = 't.due_date BETWEEN ? AND ?';
+        $params[] = $today;
+        $params[] = $week_end;
+        $types   .= 'ss';
+    } elseif ($f_due === 'has_date') {
+        $where[] = 't.due_date IS NOT NULL';
+    } elseif ($f_due === 'no_date') {
+        $where[] = 't.due_date IS NULL';
+    }
+}
+
+if ($f_sort === 'due_asc') {
+    $order_by = ' ORDER BY (t.due_date IS NULL), t.due_date ASC';
+} elseif ($f_sort === 'priority_high') {
+    $order_by = " ORDER BY FIELD(t.priority,'high','medium','low'), t.created_at DESC";
+} else {
+    $order_by = ' ORDER BY t.created_at DESC';
+}
 
 $sql = "SELECT t.ticket_id, t.title, t.status, t.priority, t.due_date,
                t.created_at, u.name AS assignee_name
           FROM tickets t
      LEFT JOIN users u ON u.user_id = t.assigned_user_id"
      . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
-     . ' ORDER BY t.created_at DESC';
+     . $order_by;
 
 $stmt = $conn->prepare($sql);
 if ($types !== '') $stmt->bind_param($types, ...$params);
@@ -90,6 +122,23 @@ require_once __DIR__ . '/../includes/header.php';
                             <?= $f_assignee === (string)$u['user_id'] ? 'selected' : '' ?>>
                         <?= e($u['name']) ?>
                     </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label for="filter-due">Due</label>
+            <select id="filter-due" name="due">
+                <option value="">Any</option>
+                <?php foreach (['overdue' => 'Overdue', 'this_week' => 'Next 7 days', 'has_date' => 'Has due date', 'no_date' => 'No due date'] as $v => $l): ?>
+                    <option value="<?= e($v) ?>" <?= $f_due === $v ? 'selected' : '' ?>><?= e($l) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label for="filter-sort">Sort by</label>
+            <select id="filter-sort" name="sort">
+                <?php foreach (['created_desc' => 'Newest first', 'due_asc' => 'Due date (soonest)', 'priority_high' => 'Priority (high first)'] as $v => $l): ?>
+                    <option value="<?= e($v) ?>" <?= $f_sort === $v ? 'selected' : '' ?>><?= e($l) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>

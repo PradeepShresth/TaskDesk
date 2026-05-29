@@ -96,3 +96,38 @@ function ticket_is_overdue($due_date, $status)
     return strtotime($due_date) < strtotime(date('Y-m-d'));
 }
 
+/**
+ * Convenience: is the logged-in user an admin?
+ */
+function is_admin()
+{
+    return isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin';
+}
+
+/**
+ * Bounce non-admin users back to the dashboard with an error flash.
+ * Call at the top of pages or handlers that should be admin-only.
+ */
+function require_admin()
+{
+    if (!is_admin()) {
+        flash_set('error', 'That action is only available to admins.');
+        redirect('dashboard.php');
+    }
+}
+
+/**
+ * Append a row to the ticket_history audit log.
+ * $conn must already be a live MySQLi connection.
+ */
+function log_ticket_event($conn, $ticket_id, $user_id, $event_type, $old_value = null, $new_value = null)
+{
+    $stmt = $conn->prepare(
+        'INSERT INTO ticket_history (ticket_id, user_id, event_type, old_value, new_value)
+         VALUES (?, ?, ?, ?, ?)'
+    );
+    $stmt->bind_param('iisss', $ticket_id, $user_id, $event_type, $old_value, $new_value);
+    $stmt->execute();
+    $stmt->close();
+}
+
